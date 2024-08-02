@@ -1,3 +1,8 @@
+ACTL1101 Assignment Part B
+================
+Alan Niu
+2024 T2
+
 # CAPM Analysis
 
 ## Introduction
@@ -34,48 +39,52 @@ diversified portfolio.
 
 ### Step 1: Data Loading
 
--   We are using the `quantmod` package to directly load financial data
-    from Yahoo Finance without the need to manually download and read
-    from a CSV file.
--   `quantmod` stands for “Quantitative Financial Modelling Framework”.
-    It was developed to aid the quantitative trader in the development,
-    testing, and deployment of statistically based trading models.
--   Make sure to install the `quantmod` package by running
-    `install.packages("quantmod")` in the R console before proceeding.
+- We are using the `quantmod` package to directly load financial data
+  from Yahoo Finance without the need to manually download and read from
+  a CSV file.
+- `quantmod` stands for “Quantitative Financial Modelling Framework”. It
+  was developed to aid the quantitative trader in the development,
+  testing, and deployment of statistically based trading models.
+- Make sure to install the `quantmod` package by running
+  `install.packages("quantmod")` in the R console before proceeding.
 
-<!-- -->
+``` r
+# Set start and end dates
+start_date <- as.Date("2019-05-20")
+end_date <- as.Date("2024-05-20")
 
-    # Set start and end dates
-    start_date <- as.Date("2019-05-20")
-    end_date <- as.Date("2024-05-20")
+# Load data for AMD, S&P 500, and the 1-month T-Bill (DTB4WK)
+amd_data <- getSymbols("AMD", src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
+gspc_data <- getSymbols("^GSPC", src = "yahoo", from = start_date, to = end_date,
+    auto.assign = FALSE)
+rf_data <- getSymbols("DTB4WK", src = "FRED", from = start_date, to = end_date, auto.assign = FALSE)
 
-    # Load data for AMD, S&P 500, and the 1-month T-Bill (DTB4WK)
-    amd_data <- getSymbols("AMD", src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
-    gspc_data <- getSymbols("^GSPC", src = "yahoo", from = start_date, to = end_date,
-        auto.assign = FALSE)
-    rf_data <- getSymbols("DTB4WK", src = "FRED", from = start_date, to = end_date, auto.assign = FALSE)
+# Convert Adjusted Closing Prices and DTB4WK to data frames
+amd_df <- data.frame(Date = index(amd_data), AMD = as.numeric(Cl(amd_data)))
+gspc_df <- data.frame(Date = index(gspc_data), GSPC = as.numeric(Cl(gspc_data)))
 
-    # Convert Adjusted Closing Prices and DTB4WK to data frames
-    amd_df <- data.frame(Date = index(amd_data), AMD = as.numeric(Cl(amd_data)))
-    gspc_df <- data.frame(Date = index(gspc_data), GSPC = as.numeric(Cl(gspc_data)))
+# Accessing the first column of rf_data
+rf_df <- data.frame(Date = index(rf_data), RF = as.numeric(rf_data[, 1]))
 
-    # Accessing the first column of rf_data
-    rf_df <- data.frame(Date = index(rf_data), RF = as.numeric(rf_data[, 1]))
-
-    # Merge the AMD, GSPC, and RF data frames on the Date column
-    df <- merge(amd_df, gspc_df, by = "Date")
-    df <- merge(df, rf_df, by = "Date")
+# Merge the AMD, GSPC, and RF data frames on the Date column
+df <- merge(amd_df, gspc_df, by = "Date")
+df <- merge(df, rf_df, by = "Date")
+```
 
 #### Data Processing
 
-    colSums(is.na(df))
+``` r
+colSums(is.na(df))
+```
 
     ## Date  AMD GSPC   RF 
     ##    0    0    0    9
 
-    # Fill N/A RF data
-    df <- df %>%
-        fill(RF, .direction = "down")
+``` r
+# Fill N/A RF data
+df <- df %>%
+    fill(RF, .direction = "down")
+```
 
 ### Step 2: CAPM Analysis
 
@@ -89,67 +98,65 @@ decisions about adding assets to a well-diversified portfolio.
 
 The formula for CAPM is given by:
 
-*E*(*R*<sub>*i*</sub>) = *R*<sub>*f*</sub> + *β*<sub>*i*</sub>(*E*(*R*<sub>*m*</sub>)−*R*<sub>*f*</sub>)
+$$ E(R_i) = R_f + \beta_i (E(R_m) - R_f) $$
 
 Where:
 
--   *E*(*R*<sub>*i*</sub>) is the expected return on the capital asset,
--   *R*<sub>*f*</sub> is the risk-free rate,
--   *β*<sub>*i*</sub> is the beta of the security, which represents the
-    systematic risk of the security,
--   *E*(*R*<sub>*m*</sub>) is the expected return of the market.
+- $E(R_i)$ is the expected return on the capital asset,
+- $R_f$ is the risk-free rate,
+- $\beta_i$ is the beta of the security, which represents the systematic
+  risk of the security,
+- $E(R_m)$ is the expected return of the market.
 
 #### CAPM Model Daily Estimation
 
--   **Calculate Returns**: First, we calculate the daily returns for AMD
-    and the S&P 500 from their adjusted closing prices. This should be
-    done by dividing the difference in prices between two consecutive
-    days by the price at the beginning of the period.
-    $$
-    \text{Daily Return} = \frac{\text{Today's Price} - \text{Previous Trading Day's Price}}{\text{Previous Trading Day's Price}}
-    $$
+- **Calculate Returns**: First, we calculate the daily returns for AMD
+  and the S&P 500 from their adjusted closing prices. This should be
+  done by dividing the difference in prices between two consecutive days
+  by the price at the beginning of the period. $$
+  \text{Daily Return} = \frac{\text{Today's Price} - \text{Previous Trading Day's Price}}{\text{Previous Trading Day's Price}}
+  $$
 
-<!-- -->
+``` r
+df$amd_return[1] <- 0
+df$gspc_return[1] <- 0
+for (i in 2:nrow(df)) {
+    df$amd_return[i] <- (df$AMD[i] - df$AMD[i - 1])/df$AMD[i - 1]
+    df$gspc_return[i] <- (df$GSPC[i] - df$GSPC[i - 1])/df$GSPC[i - 1]
+}
+```
 
-    df$amd_return[1] <- 0
-    df$gspc_return[1] <- 0
-    for (i in 2:nrow(df)) {
-        df$amd_return[i] <- (df$AMD[i] - df$AMD[i - 1])/df$AMD[i - 1]
-        df$gspc_return[i] <- (df$GSPC[i] - df$GSPC[i - 1])/df$GSPC[i - 1]
-    }
+- **Calculate Risk-Free Rate**: Calculate the daily risk-free rate by
+  conversion of annual risk-free Rate. This conversion accounts for the
+  compounding effect over the days of the year and is calculated using
+  the formula: $$
+  \text{Daily Risk-Free Rate} = \left(1 + \frac{\text{Annual Rate}}{100}\right)^{\frac{1}{360}} - 1
+  $$
 
--   **Calculate Risk-Free Rate**: Calculate the daily risk-free rate by
-    conversion of annual risk-free Rate. This conversion accounts for
-    the compounding effect over the days of the year and is calculated
-    using the formula:
-    $$
-    \text{Daily Risk-Free Rate} = \left(1 + \frac{\text{Annual Rate}}{100}\right)^{\frac{1}{360}} - 1
-    $$
+``` r
+df$daily_rf <- ((1 + df$RF/100)^(1/360) - 1)
+```
 
-<!-- -->
+- **Calculate Excess Returns**: Compute the excess returns for AMD and
+  the S&P 500 by subtracting the daily risk-free rate from their
+  respective returns.
 
-    df$daily_rf <- ((1 + df$RF/100)^(1/360) - 1)
+``` r
+# fill the code
+df$amd_excess <- df$amd_return - df$daily_rf
+df$gspc_excess <- df$gspc_return - df$daily_rf
+```
 
--   **Calculate Excess Returns**: Compute the excess returns for AMD and
-    the S&P 500 by subtracting the daily risk-free rate from their
-    respective returns.
+- **Perform Regression Analysis**: Using linear regression, we estimate
+  the beta ($\beta$) of AMD relative to the S&P 500. Here, the dependent
+  variable is the excess return of AMD, and the independent variable is
+  the excess return of the S&P 500. Beta measures the sensitivity of the
+  stock’s returns to fluctuations in the market.
 
-<!-- -->
-
-    # fill the code
-    df$amd_excess <- df$amd_return - df$daily_rf
-    df$gspc_excess <- df$gspc_return - df$daily_rf
-
--   **Perform Regression Analysis**: Using linear regression, we
-    estimate the beta (*β*) of AMD relative to the S&P 500. Here, the
-    dependent variable is the excess return of AMD, and the independent
-    variable is the excess return of the S&P 500. Beta measures the
-    sensitivity of the stock’s returns to fluctuations in the market.
-
-<!-- -->
-
-    model <- lm(amd_excess ~ gspc_excess, data = df)
-    summary(model)
+``` r
+model <- lm(amd_excess ~ gspc_excess, data = df)
+summary(model)
+```
 
     ## 
     ## Call:
@@ -172,12 +179,13 @@ Where:
 
 #### Interpretation
 
-What is your *β*? Is AMD more volatile or less volatile than the market?
+What is your $\beta$? Is AMD more volatile or less volatile than the
+market?
 
 **Answer:**
 
-My coefficient for the excess return between AMD and S&P 500 was *β* =
-1.57, which indicates that AMD is generating higher excess return than
+My coefficient for the excess return between AMD and S&P 500 was $\beta$
+= 1.57, which indicates that AMD is generating higher excess return than
 the S&P 500. Since higher return is necessarily accompanied by bearing
 higher risk, we can conclude that AMD is in fact more volatile than the
 S&P 500 market index.
@@ -187,25 +195,29 @@ S&P 500 market index.
 Plot the scatter plot of AMD vs. S&P 500 excess returns and add the CAPM
 regression line.
 
-    # Ensure columns are numeric (this step might be redundant if already handled)
-    df$amd_excess <- as.numeric(df$amd_excess)
-    df$gspc_excess <- as.numeric(df$gspc_excess)
+``` r
+# Ensure columns are numeric (this step might be redundant if already handled)
+df$amd_excess <- as.numeric(df$amd_excess)
+df$gspc_excess <- as.numeric(df$gspc_excess)
 
-    # Plot the scatterplot with the regression line
-    png("capm_plot.png")
-    ggplot(df, aes(x = gspc_excess, y = amd_excess)) +
-      geom_point(size=0.5) +                      # Scatterplot
-      geom_smooth(method = "lm", col = "blue") +  # Regression line (CAPM)
-      labs(title = "Scatterplot of AMD Excess Returns vs. S&P 500 Excess Returns",
-           x = "S&P 500 Excess Returns",
-           y = "AMD Excess Returns") +
-      theme_minimal()
+# Plot the scatterplot with the regression line
+png("capm_plot.png")
+ggplot(df, aes(x = gspc_excess, y = amd_excess)) +
+  geom_point(size=0.5) +                      # Scatterplot
+  geom_smooth(method = "lm", col = "blue") +  # Regression line (CAPM)
+  labs(title = "Scatterplot of AMD Excess Returns vs. S&P 500 Excess Returns",
+       x = "S&P 500 Excess Returns",
+       y = "AMD Excess Returns") +
+  theme_minimal()
+```
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    knitr::include_graphics("capm_plot.png")
+``` r
+knitr::include_graphics("capm_plot.png")
+```
 
-![](capm_plot.png)
+![](capm_plot.png)<!-- -->
 
 ### Step 3: Predictions Interval
 
@@ -213,57 +225,65 @@ Suppose the current risk-free rate is 5.0%, and the annual expected
 return for the S&P 500 is 13.3%. Determine a 90% prediction interval for
 AMD’s annual expected return.
 
-*Hint: Calculate the daily standard error of the forecast
-(**s*<sub>*f*</sub>), and assume that the annual standard error for
-prediction is $s\_f \times \sqrt{252}$. Use the simple return average
-method to convert daily stock returns to annual returns if needed.
+*Hint: Calculate the daily standard error of the forecast (*$s_f$), and
+assume that the annual standard error for prediction is
+$s_f \times \sqrt{252}$. Use the simple return average method to convert
+daily stock returns to annual returns if needed.
 
-*E*(*R*<sub>*i*</sub>) = *R*<sub>*f*</sub> + *β*<sub>*i*</sub>(*E*(*R*<sub>*m*</sub>)−*R*<sub>*f*</sub>)
+$$ E(R_i) = R_f + \beta_i (E(R_m) - R_f) $$
 
 **Answer:**
 
-    n <- nrow(df)
+``` r
+n <- nrow(df)
 
-    se <- summary(model)$sigma
+se <- summary(model)$sigma
 
-    # Forecast value Xf (mean of S&P 500 excess returns)
-    daily_rfr <- (1 + 5/100)^(1/360) - 1
-    daily_gspc_return <- 0.133/252
-    X_f = daily_gspc_return - daily_rfr
-    X_bar <- mean(df$gspc_excess)
+# Forecast value Xf (mean of S&P 500 excess returns)
+daily_rfr <- (1 + 5/100)^(1/360) - 1
+daily_gspc_return <- 0.133/252
+X_f = daily_gspc_return - daily_rfr
+X_bar <- mean(df$gspc_excess)
 
-    # Calculate daily standard error of the forecast (sf)
-    sf <- se * sqrt(1 + (1/n) + ((X_f - X_bar)^2/sum((df$gspc_excess - X_bar)^2)))
+# Calculate daily standard error of the forecast (sf)
+sf <- se * sqrt(1 + (1/n) + ((X_f - X_bar)^2/sum((df$gspc_excess - X_bar)^2)))
 
-    # Convert daily standard error to annual standard error
-    annual_sf <- sf * sqrt(252)
+# Convert daily standard error to annual standard error
+annual_sf <- sf * sqrt(252)
 
-    # Annual expected return for AMD using CAPM
-    annual_expected_return_amd <- 0.05 + 1.57 * (0.133 - 0.05)
+# Annual expected return for AMD using CAPM
+annual_expected_return_amd <- 0.05 + 1.57 * (0.133 - 0.05)
 
-    # T-critical value for 90% prediction interval
-    t_critical <- qt(0.95, df = n - 2)
+# T-critical value for 90% prediction interval
+t_critical <- qt(0.95, df = n - 2)
 
-    # Calculate the prediction interval
-    lower_bound <- annual_expected_return_amd - t_critical * annual_sf
-    upper_bound <- annual_expected_return_amd + t_critical * annual_sf
+# Calculate the prediction interval
+lower_bound <- annual_expected_return_amd - t_critical * annual_sf
+upper_bound <- annual_expected_return_amd + t_critical * annual_sf
 
-    # Print results
-    cat("90% Prediction Interval for AMD's Annual Expected Return:\n")
+# Print results
+cat("90% Prediction Interval for AMD's Annual Expected Return:\n")
+```
 
     ## 90% Prediction Interval for AMD's Annual Expected Return:
 
-    cat("Lower Bound:", lower_bound * 100, "%\n")
+``` r
+cat("Lower Bound:", lower_bound * 100, "%\n")
+```
 
     ## Lower Bound: -49.04567 %
 
-    cat("Upper Bound:", upper_bound * 100, "%\n")
+``` r
+cat("Upper Bound:", upper_bound * 100, "%\n")
+```
 
     ## Upper Bound: 85.10767 %
 
 ## Appendix
 
-    print(head(df))
+``` r
+print(head(df))
+```
 
     ##         Date   AMD    GSPC   RF   amd_return  gspc_return     daily_rf
     ## 1 2019-05-20 26.68 2840.23 2.35  0.000000000  0.000000000 6.452465e-05
